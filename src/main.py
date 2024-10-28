@@ -287,7 +287,7 @@ if st.session_state.page == '👤 Data Anda':
                 'meal_plan_period': meal_plan_period
             }
             
-            st.success("Data berhasil disimpan!")
+            st.success("Data berhasil disimpan! Silahkan buka menu Meal Plan dan Meal Prep.")
 
 # Meal Plan Page
 elif st.session_state.page == '🍽️ Meal Plan':
