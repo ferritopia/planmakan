@@ -348,7 +348,7 @@ if st.session_state.page == '👤 Data Anda':
                 value=st.session_state.user_data.get('food_allergies', '')
             )
 
-       submitted = st.form_submit_button("Simpan Data")
+        submitted = st.form_submit_button("Simpan Data")
 
         if submitted:
             try:
