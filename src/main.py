@@ -38,59 +38,78 @@ def get_groq_client():
 
 client = get_groq_client()
 
-# Initialize storage system
-def init_storage():
-    components.html(
-        """
-        <script>
-            // Function to handle messages from the parent window
-            window.addEventListener('message', function(e) {
-                if (e.data.type === 'get_user_data') {
-                    const data = localStorage.getItem('planmakan_user_data');
-                    if (data) {
-                        window.parent.postMessage({
-                            type: 'user_data',
-                            value: data
-                        }, '*');
-                    }
-                }
-            });
+# Initialize session states if they don't exist
+if 'page' not in st.session_state:
+    st.session_state.page = 'user_details'
 
-            // Function to save data to local storage
-            window.addEventListener('message', function(e) {
-                if (e.data.type === 'save_data') {
-                    localStorage.setItem('planmakan_user_data', JSON.stringify(e.data.value));
-                }
-            });
+if 'user_data' not in st.session_state:
+    st.session_state.user_data = {}
 
-            // Initial load
-            const data = localStorage.getItem('planmakan_user_data');
-            if (data) {
-                window.parent.postMessage({
-                    type: 'user_data',
-                    value: data
-                }, '*');
-            }
-        </script>
-        """,
-        height=0
-    )
+if 'current_meal_plan' not in st.session_state:
+    st.session_state.current_meal_plan = None
 
-# Function to save data
+if 'meal_prep' not in st.session_state:
+    st.session_state.meal_prep = None
+
+# Modified save_user_data function with error handling
 def save_user_data(data):
-    st.session_state.user_data = data
-    components.html(
-        f"""
-        <script>
-            window.parent.postMessage({{
-                type: 'save_data',
-                value: {json.dumps(data)}
-            }}, '*');
-        </script>
-        """,
-        height=0
-    )
+    try:
+        # Update session state
+        st.session_state.user_data = data
+        
+        # Save to local storage using components
+        components.html(
+            f"""
+            <script>
+                try {{
+                    localStorage.setItem('planmakan_user_data', '{json.dumps(data)}');
+                    window.parent.postMessage({{
+                        type: 'save_data',
+                        value: {json.dumps(data)}
+                    }}, '*');
+                }} catch (e) {{
+                    console.error('Error saving data:', e);
+                }}
+            </script>
+            """,
+            height=0
+        )
+        return True
+    except Exception as e:
+        st.error(f"Error saving data: {str(e)}")
+        return False
 
+# Modified load_user_data function with error handling
+def load_user_data():
+    try:
+        return st.session_state.get('user_data', {})
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return {}
+
+# Function to calculate BMI
+def calculate_bmi(weight, height_cm):
+    height_m = height_cm / 100
+    return weight / (height_m * height_m)
+
+# Modified form submission handling
+def handle_form_submission(form_data):
+    try:
+        # Calculate BMI
+        bmi = calculate_bmi(form_data['weight'], form_data['height'])
+        
+        # Add BMI to form data
+        form_data['bmi'] = bmi
+        
+        # Save data
+        if save_user_data(form_data):
+            st.success("Data berhasil disimpan! Silahkan buka menu Meal Plan dan Meal Prep.")
+        else:
+            st.error("Gagal menyimpan data. Silakan coba lagi.")
+            
+    except Exception as e:
+        st.error(f"Error processing form: {str(e)}")
+        
 # Function to load data
 def load_user_data():
     return st.session_state.get('user_data', {})
@@ -188,27 +207,6 @@ def generate_meal_prep(user_data, meal_plan):
     
     return "".join(list(parse_groq_stream(stream)))
 
-# Function to calculate BMI
-def calculate_bmi(weight, height_cm):
-    height_m = height_cm / 100
-    return weight / (height_m * height_m)
-
-# Initialize session states
-if 'page' not in st.session_state:
-    st.session_state.page = 'user_details'
-
-if 'user_data' not in st.session_state:
-    st.session_state.user_data = {}
-
-if 'current_meal_plan' not in st.session_state:
-    st.session_state.current_meal_plan = None
-
-if 'meal_prep' not in st.session_state:
-    st.session_state.meal_prep = None
-
-if 'storage_initialized' not in st.session_state:
-    init_storage()
-    st.session_state.storage_initialized = True
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
@@ -381,6 +379,7 @@ if st.session_state.page == '👤 Data Anda':
                 'food_source': food_source,
                 'budget_strict': budget_strict
             }
+            handle_form_submission(form_data)
             save_user_data(user_data)
             st.success("Data berhasil disimpan! Silahkan buka menu Meal Plan dan Meal Prep.")
 
