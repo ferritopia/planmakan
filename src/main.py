@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import dotenv_values
 from groq import Groq
 from datetime import datetime
@@ -27,12 +28,72 @@ except:
     EMAIL_SENDER = st.secrets.get("EMAIL_SENDER", "")
     EMAIL_PASSWORD = st.secrets.get("EMAIL_PASSWORD", "")
 
-
 # Save the API key to environment variable
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
-# Initialize Groq client
-client = Groq()
+# Initialize Groq client with caching
+@st.cache_resource
+def get_groq_client():
+    return Groq()
+
+client = get_groq_client()
+
+# Initialize storage system
+def init_storage():
+    components.html(
+        """
+        <script>
+            // Function to handle messages from the parent window
+            window.addEventListener('message', function(e) {
+                if (e.data.type === 'get_user_data') {
+                    const data = localStorage.getItem('planmakan_user_data');
+                    if (data) {
+                        window.parent.postMessage({
+                            type: 'user_data',
+                            value: data
+                        }, '*');
+                    }
+                }
+            });
+
+            // Function to save data to local storage
+            window.addEventListener('message', function(e) {
+                if (e.data.type === 'save_data') {
+                    localStorage.setItem('planmakan_user_data', JSON.stringify(e.data.value));
+                }
+            });
+
+            // Initial load
+            const data = localStorage.getItem('planmakan_user_data');
+            if (data) {
+                window.parent.postMessage({
+                    type: 'user_data',
+                    value: data
+                }, '*');
+            }
+        </script>
+        """,
+        height=0
+    )
+
+# Function to save data
+def save_user_data(data):
+    st.session_state.user_data = data
+    components.html(
+        f"""
+        <script>
+            window.parent.postMessage({{
+                type: 'save_data',
+                value: {json.dumps(data)}
+            }}, '*');
+        </script>
+        """,
+        height=0
+    )
+
+# Function to load data
+def load_user_data():
+    return st.session_state.get('user_data', {})
 
 # Function to send email
 def send_email(receiver_email, meal_plan, meal_prep=None):
@@ -42,7 +103,6 @@ def send_email(receiver_email, meal_plan, meal_prep=None):
         msg['To'] = receiver_email
         msg['Subject'] = "Your Meal Plan from Planmakan"
         
-        # Create email body
         body = "Here's your meal plan:\n\n"
         body += meal_plan
         
@@ -52,7 +112,6 @@ def send_email(receiver_email, meal_plan, meal_prep=None):
             
         msg.attach(MIMEText(body, 'plain'))
         
-        # Create server and send email
         server = smtplib.SMTP('mail.planmakan.streamlit.app', 587)
         server.starttls()
         server.login(EMAIL_SENDER, EMAIL_PASSWORD)
@@ -75,32 +134,13 @@ def parse_groq_stream(stream):
                 yield content
     return response
 
-# Initialize session state for all components if not exists
-if 'user_data' not in st.session_state:
-    st.session_state.user_data = {}
-
-if 'current_meal_plan' not in st.session_state:
-    st.session_state.current_meal_plan = None
-
-if 'meal_prep' not in st.session_state:
-    st.session_state.meal_prep = None
-
-# Function to save data to session state
-def save_user_data(data):
-    st.session_state.user_data = data
-    # You could also save to a file or database here if needed
-    
-# Function to load data from session state
-def load_user_data():
-    return st.session_state.user_data
-
 # Cache decorator for storing mealplan results
-@st.cache_data
+@st.cache_data(ttl="720h")
 def generate_mealplan(user_data):
     messages = [
         {
             "role": "system",
-            "content": """Anda adalah seorang ahli gizi profesional dna mealplanner, berikan analisa singkat kebutuhan dan tujuan, lalu buatkan mealplan harian untuk user berdasarkan data yang ada dan sesuaikan juga dengan kebutuhan kalori intake nya. Tampilkan dalam bentuk tabel apa saja makanannya, di dalamnya juga terdapat informasi seperti kalori, karbo, protein, lemak untuk setiap makanannya. Di akhir waktu makan tampilkan total mikro nutrisi nya"""
+            "content": """Anda adalah seorang ahli gizi dan mealplanner profesional, berikan analisa singkat kebutuhan dan tujuan, lalu buatkan mealplan harian untuk user berdasarkan data yang ada dan sesuaikan juga dengan kebutuhan kalori intake nya. Tampilkan dalam bentuk tabel apa saja makanannya, di dalamnya juga terdapat informasi seperti kalori, karbo, protein, lemak untuk setiap makanannya. Di akhir waktu makan tampilkan total mikro nutrisi nya"""
         },
         {
             "role": "user",
@@ -118,10 +158,8 @@ def generate_mealplan(user_data):
     
     return "".join(list(parse_groq_stream(stream)))
 
-# ... (kode sebelumnya tetap sama sampai fungsi generate_mealplan)
-
-# Tambahkan fungsi baru untuk generate meal prep
-@st.cache_data
+# Cache decorator for storing meal prep results
+@st.cache_data(ttl="1h")
 def generate_meal_prep(user_data, meal_plan):
     messages = [
         {
@@ -132,15 +170,11 @@ def generate_meal_prep(user_data, meal_plan):
 3. Instruksi penyimpanan dan tips
 4. Teknik menghemat waktu
 5. Instruksi memasak dengan perkiraan waktu persiapan
-6. Alat dan peralatan yang dibutuhkan
-
-Formatlah respons dalam bagian yang jelas dengan format markdown untuk meningkatkan keterbacaan. Pertimbangkan preferensi memasak pengguna, batasan anggaran, dan ketersediaan waktu."""
+6. Alat dan peralatan yang dibutuhkan"""
         },
         {
             "role": "user",
-            "content": f"""Tolong buat panduan persiapan makanan berdasarkan data pengguna dan meal plan ini:
-            User Data: {json.dumps(user_data, indent=2)}
-            Meal Plan: {meal_plan}"""
+            "content": f"Tolong buat panduan persiapan makanan berdasarkan data pengguna dan meal plan ini:\nUser Data: {json.dumps(user_data, indent=2)}\nMeal Plan: {meal_plan}"
         }
     ]
     
@@ -154,19 +188,27 @@ Formatlah respons dalam bagian yang jelas dengan format markdown untuk meningkat
     
     return "".join(list(parse_groq_stream(stream)))
 
-# ... (kode lain tetap sama sampai bagian Meal Prep Page)
-
 # Function to calculate BMI
 def calculate_bmi(weight, height_cm):
     height_m = height_cm / 100
     return weight / (height_m * height_m)
 
-# Initialize session state for navigation
+# Initialize session states
 if 'page' not in st.session_state:
     st.session_state.page = 'user_details'
 
 if 'user_data' not in st.session_state:
     st.session_state.user_data = {}
+
+if 'current_meal_plan' not in st.session_state:
+    st.session_state.current_meal_plan = None
+
+if 'meal_prep' not in st.session_state:
+    st.session_state.meal_prep = None
+
+if 'storage_initialized' not in st.session_state:
+    init_storage()
+    st.session_state.storage_initialized = True
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
@@ -290,7 +332,7 @@ if st.session_state.page == '👤 Data Anda':
         with col2:
             disliked_foods = st.text_area("Makanan yang Anda tidak sukai", value=st.session_state.user_data.get('disliked_foods', ''))
         
-# Allergies Section (Fixed)
+        # Allergies Section (Fixed)
         st.header("Alergi Makanan")
         allergy_options = ['Ya', 'Tidak']
         has_allergies = st.radio(
@@ -339,7 +381,7 @@ if st.session_state.page == '👤 Data Anda':
                 'food_source': food_source,
                 'budget_strict': budget_strict
             }
-            
+            save_user_data(user_data)
             st.success("Data berhasil disimpan! Silahkan buka menu Meal Plan dan Meal Prep.")
 
 # Meal Plan Page
