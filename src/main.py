@@ -4,6 +4,9 @@ from dotenv import dotenv_values
 from groq import Groq
 from datetime import datetime
 import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Configure page settings
 st.set_page_config(
@@ -16,15 +19,50 @@ st.set_page_config(
 try:
     secrets = dotenv_values(".env")  # for dev env
     GROQ_API_KEY = secrets["GROQ_API_KEY"]
+    EMAIL_SENDER = secrets.get("EMAIL_SENDER", "")
+    EMAIL_PASSWORD = secrets.get("EMAIL_PASSWORD", "")
 except:
     secrets = st.secrets  # for streamlit deployment
     GROQ_API_KEY = secrets["GROQ_API_KEY"]
+    EMAIL_SENDER = st.secrets.get("EMAIL_SENDER", "")
+    EMAIL_PASSWORD = st.secrets.get("EMAIL_PASSWORD", "")
+
 
 # Save the API key to environment variable
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
 # Initialize Groq client
 client = Groq()
+
+# Function to send email
+def send_email(receiver_email, meal_plan, meal_prep=None):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_SENDER
+        msg['To'] = receiver_email
+        msg['Subject'] = "Your Meal Plan from Planmakan"
+        
+        # Create email body
+        body = "Here's your meal plan:\n\n"
+        body += meal_plan
+        
+        if meal_prep:
+            body += "\n\nMeal Prep Instructions:\n\n"
+            body += meal_prep
+            
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Create server and send email
+        server = smtplib.SMTP('mail.planmakan.streamlit.app', 587)
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(EMAIL_SENDER, receiver_email, text)
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Error sending email: {str(e)}")
+        return False
 
 # Function to parse Groq stream
 def parse_groq_stream(stream):
@@ -36,6 +74,25 @@ def parse_groq_stream(stream):
                 response += content
                 yield content
     return response
+
+# Initialize session state for all components if not exists
+if 'user_data' not in st.session_state:
+    st.session_state.user_data = {}
+
+if 'current_meal_plan' not in st.session_state:
+    st.session_state.current_meal_plan = None
+
+if 'meal_prep' not in st.session_state:
+    st.session_state.meal_prep = None
+
+# Function to save data to session state
+def save_user_data(data):
+    st.session_state.user_data = data
+    # You could also save to a file or database here if needed
+    
+# Function to load data from session state
+def load_user_data():
+    return st.session_state.user_data
 
 # Cache decorator for storing mealplan results
 @st.cache_data
@@ -338,16 +395,42 @@ elif st.session_state.page == '👩‍🍳 Meal Prep':
 
 # ... (kode selanjutnya tetap sama)
 
-# Share Page
+# Share Page (Modified)
 elif st.session_state.page == '📤 Share':
     st.title("Bagikan Meal Plan")
     
     if not st.session_state.get('current_meal_plan'):
         st.warning("Silakan generate meal plan terlebih dahulu.")
     else:
-        email = st.text_input("Masukkan alamat email")
-        if st.button("Kirim"):
-            st.success(f"Meal plan telah dikirim ke {email}")
+        st.info("Meal plan Anda akan dikirim melalui email.")
+        
+        # Show current meal plan
+        with st.expander("Preview Meal Plan"):
+            st.write(st.session_state.current_meal_plan)
+            if st.session_state.get('meal_prep'):
+                st.write("\nMeal Prep Instructions:")
+                st.write(st.session_state.meal_prep)
+        
+        # Email form
+        with st.form("email_form"):
+            email = st.text_input("Masukkan alamat email")
+            include_prep = st.checkbox("Sertakan instruksi meal prep", value=True)
+            
+            submitted = st.form_submit_button("Kirim")
+            if submitted and email:
+                if '@' in email and '.' in email:  # Basic email validation
+                    with st.spinner("Mengirim email..."):
+                        success = send_email(
+                            email, 
+                            st.session_state.current_meal_plan,
+                            st.session_state.meal_prep if include_prep else None
+                        )
+                        if success:
+                            st.success(f"Meal plan telah dikirim ke {email}")
+                        else:
+                            st.error("Gagal mengirim email. Silakan coba lagi.")
+                else:
+                    st.error("Masukkan alamat email yang valid")
 
 if __name__ == "__main__":
     st.sidebar.markdown("---")
