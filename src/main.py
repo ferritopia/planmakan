@@ -348,40 +348,46 @@ if st.session_state.page == '👤 Data Anda':
                 value=st.session_state.user_data.get('food_allergies', '')
             )
 
-        submitted = st.form_submit_button("Simpan Data")
+       submitted = st.form_submit_button("Simpan Data")
 
         if submitted:
-            # Calculate BMI
-            bmi = calculate_bmi(weight, height)
-            
-            # Save all data to session state
-            st.session_state.user_data = {
-                'name': name,
-                'age': age,
-                'weight': weight,
-                'height': height,
-                'current_fat_percentage': current_fat_percentage,
-                'target_fat_percentage': target_fat_percentage,
-                'target_weight': target_weight,
-                'target_months': target_months,
-                'carb_preference': carb_preference,
-                'protein_preference': protein_preference,
-                'fat_preference': fat_preference,
-                'activity': activity,
-                'bmi': bmi,
-                'diet_preferences': diet_preferences,
-                'liked_foods': liked_foods,
-                'disliked_foods': disliked_foods,
-                'has_allergies': has_allergies,
-                'food_allergies': food_allergies,
-                'cuisine_preference': cuisine_preference,
-                'meal_times': meal_times,
-                'food_source': food_source,
-                'budget_strict': budget_strict
-            }
-            handle_form_submission(form_data)
-            save_user_data(user_data)
-            st.success("Data berhasil disimpan! Silahkan buka menu Meal Plan dan Meal Prep.")
+            try:
+                # Calculate BMI
+                bmi = calculate_bmi(weight, height)
+                
+                # Create form data dictionary
+                form_data = {
+                    'name': name,
+                    'age': age,
+                    'weight': weight,
+                    'height': height,
+                    'current_fat_percentage': current_fat_percentage,
+                    'target_fat_percentage': target_fat_percentage,
+                    'target_weight': target_weight,
+                    'target_months': target_months,
+                    'carb_preference': carb_preference,
+                    'protein_preference': protein_preference,
+                    'fat_preference': fat_preference,
+                    'activity': activity,
+                    'bmi': bmi,
+                    'diet_preferences': diet_preferences,
+                    'liked_foods': liked_foods,
+                    'disliked_foods': disliked_foods,
+                    'has_allergies': has_allergies,
+                    'food_allergies': food_allergies,
+                    'cuisine_preference': cuisine_preference,
+                    'meal_times': meal_times,
+                    'food_source': food_source,
+                    'budget_strict': budget_strict
+                }
+                
+                # Save to session state and storage
+                st.session_state.user_data = form_data
+                save_user_data(form_data)
+                st.success("Data berhasil disimpan! Silahkan buka menu Meal Plan dan Meal Prep.")
+                
+            except Exception as e:
+                st.error(f"Terjadi kesalahan saat menyimpan data: {str(e)}")
 
 # Meal Plan Page
 elif st.session_state.page == '🍽️ Meal Plan':
