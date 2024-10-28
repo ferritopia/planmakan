@@ -43,7 +43,7 @@ def generate_mealplan(user_data):
     messages = [
         {
             "role": "system",
-            "content": """Anda adalah seorang ahli gizi profesional dna mealplanner, berikan analisa singkat kebutuhan dan tujuan, lalu buatkan mealplan untuk user berdasarkan data yang ada, lalu buat mealplan berdasarkan periode yang diminta, dan tampilkan dalam bentuk tabel, di dalamnya juga terdapat informasi seperti kalori, karbo, protein, lemak untuk setiap makanannya """
+            "content": """Anda adalah seorang ahli gizi profesional dna mealplanner, berikan analisa singkat kebutuhan dan tujuan, lalu buatkan mealplan harian untuk user berdasarkan data yang ada dan sesuaikan juga dengan kebutuhan kalori intake nya. Tampilkan dalam bentuk tabel apa saja makanannya, di dalamnya juga terdapat informasi seperti kalori, karbo, protein, lemak untuk setiap makanannya. Di akhir waktu makan tampilkan total mikro nutrisi nya"""
         },
         {
             "role": "user",
@@ -124,18 +124,55 @@ st.session_state.page = st.sidebar.radio("Go to", list(pages.values()))
 
 # User Details Page
 if st.session_state.page == '👤 Data Anda':
-    st.title("Personal Details")
+    st.title("Data Anda")
     
     with st.form("user_details_form"):
         # Basic Information
-        st.header("Basic Information")
-        name = st.text_input("Nama", value=st.session_state.user_data.get('name', ''))
-        weight = st.number_input("Berat badan (kg)", min_value=30.0, max_value=200.0, value=float(st.session_state.user_data.get('weight', 70.0)))
-        height = st.number_input("Tinggi (cm)", min_value=100.0, max_value=250.0, value=float(st.session_state.user_data.get('height', 170.0)))
-        fat_percentage = st.number_input("Persentase lemak (%)", min_value=0.0, max_value=100.0, value=float(st.session_state.user_data.get('fat_percentage', 20.0)))
-        target_weight = st.number_input("Target berat badan (kg)", min_value=30.0, max_value=200.0, value=float(st.session_state.user_data.get('target_weight', 65.0)))
+        st.header("Informasi Dasar")
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("Nama", value=st.session_state.user_data.get('name', ''))
+            age = st.number_input("Umur (tahun)", min_value=15, max_value=100, value=int(st.session_state.user_data.get('age', 25)))
+            weight = st.number_input("Berat badan (kg)", min_value=30.0, max_value=200.0, value=float(st.session_state.user_data.get('weight', 70.0)))
+            height = st.number_input("Tinggi (cm)", min_value=100.0, max_value=250.0, value=float(st.session_state.user_data.get('height', 170.0)))
+        
+        with col2:
+            current_fat_percentage = st.number_input("Persentase lemak saat ini (%)", min_value=0.0, max_value=100.0, value=float(st.session_state.user_data.get('fat_percentage', 20.0)))
+            target_fat_percentage = st.number_input("Target persentase lemak (%)", min_value=0.0, max_value=100.0, value=float(st.session_state.user_data.get('target_fat_percentage', 15.0)))
+            target_weight = st.number_input("Target berat badan (kg)", min_value=30.0, max_value=200.0, value=float(st.session_state.user_data.get('target_weight', 65.0)))
+            target_months = st.number_input("Target waktu pencapaian (bulan)", min_value=1, max_value=24, value=int(st.session_state.user_data.get('target_months', 3)))
+
+        # Nutrient Preferences
+        st.header("Preferensi Nutrisi")
+        nutrient_options = ["Tinggi", "Seimbang", "Rendah"]
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.subheader("Karbohidrat")
+            carb_preference = st.selectbox(
+                "Preferensi Karbohidrat",
+                nutrient_options,
+                index=nutrient_options.index(st.session_state.user_data.get('carb_preference', 'Seimbang'))
+            )
+        
+        with col2:
+            st.subheader("Protein")
+            protein_preference = st.selectbox(
+                "Preferensi Protein",
+                nutrient_options,
+                index=nutrient_options.index(st.session_state.user_data.get('protein_preference', 'Seimbang'))
+            )
+        
+        with col3:
+            st.subheader("Lemak")
+            fat_preference = st.selectbox(
+                "Preferensi Lemak",
+                nutrient_options,
+                index=nutrient_options.index(st.session_state.user_data.get('fat_preference', 'Seimbang'))
+            )
         
         # Activity Level
+        st.header("Level Aktivitas")
         activity_options = {
             "Sangat Aktif": "Latihan di gym 5-7 kali seminggu, dll.",
             "Aktif": "Latihan di gym 2-4 kali seminggu, dll.",
@@ -143,50 +180,81 @@ if st.session_state.page == '👤 Data Anda':
             "Rasanya Kurang Aktif": "Tidak terlalu rutin berlatih, dll.",
             "Tidak Aktif": "Sangat sedikit aktivitas fisik"
         }
-        activity = st.selectbox("Level Aktivitas", 
-                              options=list(activity_options.keys()),
-                              format_func=lambda x: f"{x} - {activity_options[x][:30]}...",
-                              index=list(activity_options.keys()).index(st.session_state.user_data.get('activity', 'Moderat Aktif')))
+        activity = st.selectbox(
+            "Level Aktivitas", 
+            options=list(activity_options.keys()),
+            format_func=lambda x: f"{x} - {activity_options[x][:30]}...",
+            index=list(activity_options.keys()).index(st.session_state.user_data.get('activity', 'Moderat Aktif'))
+        )
 
         # Diet Information
         st.header("Informasi Diet")
-        diet_preferences = st.selectbox("Pilihan diet",
-                                      ["Bebas", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Halal"],
-                                      index=["Bebas", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Halal"].index(st.session_state.user_data.get('diet_preferences', 'Bebas')))
+        col1, col2 = st.columns(2)
         
-        liked_foods = st.text_area("Makanan yang Anda sukai", value=st.session_state.user_data.get('liked_foods', ''))
-        disliked_foods = st.text_area("Makanan yang Anda tidak sukai", value=st.session_state.user_data.get('disliked_foods', ''))
+        with col1:
+            diet_preferences = st.selectbox(
+                "Pilihan diet",
+                ["Bebas", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Halal"],
+                index=["Bebas", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Halal"].index(st.session_state.user_data.get('diet_preferences', 'Bebas'))
+            )
+            
+            cuisine_preference = st.selectbox(
+                "Pilih menu makanan",
+                ["Indonesia", "Jawa", "Chinese food", "Fusi Asia"],
+                index=["Indonesia", "Jawa", "Chinese food", "Fusi Asia"].index(st.session_state.user_data.get('cuisine_preference', 'Indonesia'))
+            )
+            
+            food_source = st.radio(
+                "Sumber makanan",
+                ['Memasak Sendiri', 'Beli'],
+                index=['Memasak Sendiri', 'Beli'].index(st.session_state.user_data.get('food_source', 'Memasak Sendiri'))
+            )
         
-        has_allergies = st.radio("Apakah Anda memiliki alergi makanan?", 
-                               ['Tidak', 'Ya'],
-                               index=['Tidak', 'Ya'].index(st.session_state.user_data.get('has_allergies', 'Tidak')))
+        with col2:
+            meal_times = st.multiselect(
+                "Waktu makan yang diinginkan",
+                ['Sarapan', 'Makan Siang', 'Makan Malam', 'Sebelum Tidur', 'Snack'],
+                default=st.session_state.user_data.get('meal_times', ['Sarapan', 'Makan Siang', 'Makan Malam'])
+            )
+            
+            budget_strict = st.radio(
+                "Apakah Anda memiliki anggaran yang ketat untuk belanja?",
+                ['Ya', 'Tidak'],
+                index=['Ya', 'Tidak'].index(st.session_state.user_data.get('budget_strict', 'Tidak'))
+            )
+            
+            meal_plan_period = st.selectbox(
+                "Pilih periode meal plan yang diinginkan",
+                ["Harian", "Mingguan", "Bulanan"],
+                index=["Harian", "Mingguan", "Bulanan"].index(st.session_state.user_data.get('meal_plan_period', 'Harian'))
+            )
+
+        # Food Preferences
+        st.header("Preferensi Makanan")
+        col1, col2 = st.columns(2)
         
-        food_allergies = ''
+        with col1:
+            liked_foods = st.text_area("Makanan yang Anda sukai", value=st.session_state.user_data.get('liked_foods', ''))
+        
+        with col2:
+            disliked_foods = st.text_area("Makanan yang Anda tidak sukai", value=st.session_state.user_data.get('disliked_foods', ''))
+        
+        # Allergies
+        has_allergies = st.radio(
+            "Apakah Anda memiliki alergi makanan?", 
+            ['Tidak', 'Ya'],
+            index=['Tidak', 'Ya'].index(st.session_state.user_data.get('has_allergies', 'Tidak'))
+        )
+        
         if has_allergies == 'Ya':
-            food_allergies = st.text_area("Sebutkan alergi makanan Anda", value=st.session_state.user_data.get('food_allergies', ''))
+            food_allergies = st.text_area(
+                "Sebutkan alergi makanan Anda",
+                value=st.session_state.user_data.get('food_allergies', '')
+            )
+        else:
+            food_allergies = ''
 
-        cuisine_preference = st.selectbox("Pilih menu makanan",
-                                        ["Indonesia", "Jawa", "Chinese food", "Fusi Asia"],
-                                        index=["Indonesia", "Jawa", "Chinese food", "Fusi Asia"].index(st.session_state.user_data.get('cuisine_preference', 'Indonesia')))
-
-        meal_times = st.multiselect("Waktu makan yang diinginkan",
-                                  ['Sarapan', 'Makan Siang', 'Makan Malam', 'Sebelum Tidur', 'Snack'],
-                                  default=st.session_state.user_data.get('meal_times', ['Sarapan', 'Makan Siang', 'Makan Malam']))
-
-        food_source = st.radio("Sumber makanan",
-                             ['Memasak Sendiri', 'Beli'],
-                             index=['Memasak Sendiri', 'Beli'].index(st.session_state.user_data.get('food_source', 'Memasak Sendiri')))
-
-        budget_strict = st.radio("Apakah Anda memiliki anggaran yang ketat untuk belanja?",
-                               ['Ya', 'Tidak'],
-                               index=['Ya', 'Tidak'].index(st.session_state.user_data.get('budget_strict', 'Tidak')))
-
-      # Tambahkan pilihan periode meal plan
-        meal_plan_period = st.selectbox("Pilih periode meal plan yang diinginkan",
-                                      ["Harian", "Mingguan", "Bulanan"],
-                                      index=["Harian", "Mingguan", "Bulanan"].index(st.session_state.user_data.get('meal_plan_period', 'Harian')))
-
-        submitted = st.form_submit_button("Simpan")
+        submitted = st.form_submit_button("Simpan Data")
 
         if submitted:
             # Calculate BMI
@@ -195,10 +263,16 @@ if st.session_state.page == '👤 Data Anda':
             # Save all data to session state
             st.session_state.user_data = {
                 'name': name,
+                'age': age,
                 'weight': weight,
                 'height': height,
-                'fat_percentage': fat_percentage,
+                'current_fat_percentage': current_fat_percentage,
+                'target_fat_percentage': target_fat_percentage,
                 'target_weight': target_weight,
+                'target_months': target_months,
+                'carb_preference': carb_preference,
+                'protein_preference': protein_preference,
+                'fat_preference': fat_preference,
                 'activity': activity,
                 'bmi': bmi,
                 'diet_preferences': diet_preferences,
