@@ -114,7 +114,7 @@ if 'user_data' not in st.session_state:
 # Sidebar navigation
 st.sidebar.title("Navigation")
 pages = {
-    'user_details': '👤 Data',
+    'user_details': '👤 Data Anda',
     'meal_plan': '🍽️ Meal Plan',
     'meal_prep': '👩‍🍳 Meal Prep',
     'share': '📤 Share'
@@ -123,7 +123,7 @@ pages = {
 st.session_state.page = st.sidebar.radio("Go to", list(pages.values()))
 
 # User Details Page
-if st.session_state.page == '👤 Masukkan Data Anda':
+if st.session_state.page == '👤 Data Anda':
     st.title("Personal Details")
     
     with st.form("user_details_form"):
