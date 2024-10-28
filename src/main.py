@@ -233,15 +233,18 @@ if st.session_state.page == '👤 Data Anda':
         with col2:
             disliked_foods = st.text_area("Makanan yang Anda tidak sukai", value=st.session_state.user_data.get('disliked_foods', ''))
         
-        # Allergies Section (Modified)
+# Allergies Section (Fixed)
         st.header("Alergi Makanan")
+        allergy_options = ['Ya', 'Tidak']
         has_allergies = st.radio(
             "Apakah Anda memiliki alergi makanan?",
-            ['Ya', 'Tidak'],
-            index=['Ya', 'Tidak'].index(st.session_state.user_data.get('has_allergies', 'Tidak'))
+            allergy_options,
+            index=allergy_options.index(st.session_state.user_data.get('has_allergies', 'Tidak'))
         )
         
+        # Initialize food_allergies
         food_allergies = ''
+        # Only show text area if user has allergies
         if has_allergies == 'Ya':
             food_allergies = st.text_area(
                 "Sebutkan alergi makanan Anda",
