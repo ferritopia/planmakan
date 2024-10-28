@@ -52,7 +52,7 @@ def generate_mealplan(user_data):
     ]
     
     stream = client.chat.completions.create(
-        model="llama-3.2-1b-preview",
+        model="llama-3.2-90b-text-preview",
         messages=messages,
         temperature=0.7,
         max_tokens=1024,
@@ -222,12 +222,6 @@ if st.session_state.page == '👤 Data Anda':
                 ['Ya', 'Tidak'],
                 index=['Ya', 'Tidak'].index(st.session_state.user_data.get('budget_strict', 'Tidak'))
             )
-            
-            meal_plan_period = st.selectbox(
-                "Pilih periode meal plan yang diinginkan",
-                ["Harian", "Mingguan", "Bulanan"],
-                index=["Harian", "Mingguan", "Bulanan"].index(st.session_state.user_data.get('meal_plan_period', 'Harian'))
-            )
 
         # Food Preferences
         st.header("Preferensi Makanan")
@@ -239,20 +233,20 @@ if st.session_state.page == '👤 Data Anda':
         with col2:
             disliked_foods = st.text_area("Makanan yang Anda tidak sukai", value=st.session_state.user_data.get('disliked_foods', ''))
         
-        # Allergies
+        # Allergies Section (Modified)
+        st.header("Alergi Makanan")
         has_allergies = st.radio(
-            "Apakah Anda memiliki alergi makanan?", 
-            ['Tidak', 'Ya'],
-            index=['Tidak', 'Ya'].index(st.session_state.user_data.get('has_allergies', 'Tidak'))
+            "Apakah Anda memiliki alergi makanan?",
+            ['Ya', 'Tidak'],
+            index=['Ya', 'Tidak'].index(st.session_state.user_data.get('has_allergies', 'Tidak'))
         )
         
+        food_allergies = ''
         if has_allergies == 'Ya':
             food_allergies = st.text_area(
                 "Sebutkan alergi makanan Anda",
                 value=st.session_state.user_data.get('food_allergies', '')
             )
-        else:
-            food_allergies = ''
 
         submitted = st.form_submit_button("Simpan Data")
 
@@ -283,8 +277,7 @@ if st.session_state.page == '👤 Data Anda':
                 'cuisine_preference': cuisine_preference,
                 'meal_times': meal_times,
                 'food_source': food_source,
-                'budget_strict': budget_strict,
-                'meal_plan_period': meal_plan_period
+                'budget_strict': budget_strict
             }
             
             st.success("Data berhasil disimpan! Silahkan buka menu Meal Plan dan Meal Prep.")
